@@ -11,6 +11,11 @@ import {
   generateHourlyClimateData,
   runHourlySimulation,
 } from '@/lib/heatingLoad';
+import {
+  calculateHeatingLoad,
+  checkBackendHealth,
+  type FullSimulationResponse,
+} from '@/lib/api/heatingLoadAPI';
 
 // Dynamically import LocationMap to avoid SSR issues with Leaflet
 const LocationMap = dynamic(() => import('@/components/LocationMap'), {
@@ -35,15 +40,82 @@ export default function Home() {
     indoorTemp: 20,
   });
   const [simulationResults, setSimulationResults] = useState<SimulationResult | null>(null);
+  const [useBackend, setUseBackend] = useState(false);
+  const [backendAvailable, setBackendAvailable] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Check backend availability on mount
+  useEffect(() => {
+    checkBackendHealth().then((available) => {
+      setBackendAvailable(available);
+      setUseBackend(available);
+    });
+  }, []);
 
   const handleLocationChange = (lat: number, lng: number) => {
     setLocation({ latitude: lat, longitude: lng });
   };
 
-  const handleSimulate = () => {
-    const climateData = generateHourlyClimateData(location.latitude, location.longitude);
-    const results = runHourlySimulation(buildingParams, climateData);
-    setSimulationResults(results);
+  const convertBackendResultsToLocal = (backendResults: FullSimulationResponse): SimulationResult => {
+    return {
+      hourlyResults: backendResults.hourly_results.map((r) => ({
+        hour: r.hour,
+        outdoorTemp: r.outdoor_temp,
+        solarRadiation: r.solar_radiation,
+        conductiveLoss: r.conductive_loss,
+        ventilationLoss: r.ventilation_loss,
+        solarGain: r.solar_gain,
+        longwaveRadiation: r.longwave_radiation,
+        netLoad: r.net_load,
+      })),
+      totalHeatingLoad: backendResults.summary.total_heating_load_kwh,
+      peakLoad: backendResults.summary.peak_load_w,
+      averageLoad: backendResults.summary.average_load_w,
+    };
+  };
+
+  const handleSimulate = async () => {
+    setIsSimulating(true);
+    setErrorMessage(null);
+
+    try {
+      if (useBackend && backendAvailable) {
+        // Use Python backend
+        const backendResults = await calculateHeatingLoad(
+          buildingParams,
+          {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            day_of_year: 15,
+          },
+          {
+            include_radiation: true,
+            include_transient: true,
+            timestep_seconds: 3600,
+          }
+        );
+        setSimulationResults(convertBackendResultsToLocal(backendResults));
+      } else {
+        // Use local TypeScript calculations
+        const climateData = generateHourlyClimateData(location.latitude, location.longitude);
+        const results = runHourlySimulation(buildingParams, climateData);
+        setSimulationResults(results);
+      }
+    } catch (error) {
+      console.error('Simulation error:', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Simulation failed');
+      
+      // Fallback to local calculation
+      if (useBackend) {
+        console.log('Falling back to local calculation');
+        const climateData = generateHourlyClimateData(location.latitude, location.longitude);
+        const results = runHourlySimulation(buildingParams, climateData);
+        setSimulationResults(results);
+      }
+    } finally {
+      setIsSimulating(false);
+    }
   };
 
   // Run initial simulation on mount
@@ -102,10 +174,24 @@ export default function Home() {
     fontSize: '16px',
     fontWeight: '600',
     borderRadius: '8px',
-    cursor: 'pointer',
+    cursor: isSimulating ? 'not-allowed' : 'pointer',
     display: 'block',
     margin: '24px auto',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    opacity: isSimulating ? 0.7 : 1,
+  };
+
+  const toggleContainerStyle = {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: '12px',
+    marginTop: '16px',
+  };
+
+  const toggleLabelStyle = {
+    fontSize: '14px',
+    color: '#6b7280',
   };
 
   return (
@@ -137,9 +223,46 @@ export default function Home() {
           <BuildingInputForm params={buildingParams} onChange={setBuildingParams} />
         </section>
 
-        <button style={buttonStyle} onClick={handleSimulate}>
-          🔄 Run Simulation
+        <button style={buttonStyle} onClick={handleSimulate} disabled={isSimulating}>
+          {isSimulating ? '⏳ Simulating...' : '🔄 Run Simulation'}
         </button>
+
+        <div style={toggleContainerStyle}>
+          <span style={toggleLabelStyle}>
+            Calculation Engine: {useBackend ? '🐍 Python Backend' : '📝 Local TypeScript'}
+          </span>
+          {backendAvailable && (
+            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={useBackend}
+                onChange={(e) => setUseBackend(e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Use Python Backend
+            </label>
+          )}
+          {!backendAvailable && (
+            <span style={{ ...toggleLabelStyle, color: '#f59e0b' }}>
+              ⚠️ Backend unavailable (using local)
+            </span>
+          )}
+        </div>
+
+        {errorMessage && (
+          <div style={{
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '8px',
+            padding: '12px',
+            margin: '16px auto',
+            maxWidth: '600px',
+            color: '#991b1b',
+            fontSize: '14px',
+          }}>
+            ⚠️ {errorMessage}
+          </div>
+        )}
 
         {simulationResults && (
           <>
