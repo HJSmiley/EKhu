@@ -1,1 +1,1 @@
-"""Calculations package for physics-based heating load calculations."""
+"""물리 기반 난방 부하 계산을 위한 계산 패키지"""

@@ -1,1 +1,1 @@
-"""Models package for input validation and output schemas."""
+"""입력 검증 및 출력 스키마를 위한 모델 패키지"""

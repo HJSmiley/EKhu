@@ -1,50 +1,20 @@
-"""Steady-state conduction heat transfer calculations."""
+"""
+정상상태 열전도 계산 모듈 (Steady-state Conduction Heat Transfer)
 
-import numpy as np
-from typing import Dict, Tuple
-from utils.matrix_solver import solve_linear_system, build_thermal_network_matrix
+이 모듈은 건축물의 정상상태 열전달 계산을 위한 함수들을 제공합니다.
+- 열저항 계산
+- 열관류율(U-value) 계산
+- 전도 열손실 계산
+- 환기 열손실 계산
+- 다실 열평형 계산
+"""
 
+from typing import Dict
 
-# Physical constants
-AIR_DENSITY = 1.2  # kg/m³
-SPECIFIC_HEAT_AIR = 1005  # J/kg·K
+# 물리 상수 (Physical Constants)
 
-
-def calculate_thermal_resistance(
-    thickness: float,
-    thermal_conductivity: float,
-    internal_resistance: float = 0.13,
-    external_resistance: float = 0.04
-) -> float:
-    """
-    Calculate total thermal resistance of a wall assembly.
-    
-    Formula: Rt = Ri + e/λ + Re
-    
-    Args:
-        thickness: Material thickness in m
-        thermal_conductivity: Thermal conductivity in W/m·K
-        internal_resistance: Internal surface resistance in m²·K/W
-        external_resistance: External surface resistance in m²·K/W
-    
-    Returns:
-        Total thermal resistance in m²·K/W
-    """
-    material_resistance = thickness / thermal_conductivity
-    return internal_resistance + material_resistance + external_resistance
-
-
-def calculate_u_value(thermal_resistance: float) -> float:
-    """
-    Calculate U-value from thermal resistance.
-    
-    Args:
-        thermal_resistance: Total thermal resistance in m²·K/W
-    
-    Returns:
-        U-value in W/m²·K
-    """
-    return 1.0 / thermal_resistance
+AIR_DENSITY = 1.2       # 공기 밀도 ρ (kg/m³)
+SPECIFIC_HEAT_AIR = 1000  # 공기 비열 cp (J/kg·K) - 수업 공식 기준
 
 
 def calculate_conductive_loss(
@@ -54,20 +24,23 @@ def calculate_conductive_loss(
     outdoor_temp: float
 ) -> float:
     """
-    Calculate conductive heat loss through a building element.
-    
-    Formula: Q = A × U × ΔT
-    
-    Args:
-        area: Surface area in m²
-        u_value: U-value in W/m²·K
-        indoor_temp: Indoor temperature in °C
-        outdoor_temp: Outdoor temperature in °C
-    
-    Returns:
-        Heat loss in W
+    건물 부위를 통한 전도 열손실을 계산합니다. (1.4 공식)
+
+    공식: Φ = D × ΔT = (U × A) × (Ti - Te)
+    여기서 D = U × A 는 열관류량 (1.2 공식)
+
+    매개변수:
+        area: 표면적 A (m²)
+        u_value: 열관류율 U (W/m²·K)
+        indoor_temp: 실내온도 Ti (°C)
+        outdoor_temp: 외기온도 Te (°C)
+
+    반환값:
+        열손실량 Φ (W)
     """
+    # 온도차 계산: ΔT = Ti - Te
     delta_t = indoor_temp - outdoor_temp
+    # 열손실 = 면적 × 열관류율 × 온도차 (1.4 공식)
     return area * u_value * delta_t
 
 
@@ -78,22 +51,28 @@ def calculate_ventilation_loss(
     outdoor_temp: float
 ) -> float:
     """
-    Calculate ventilation heat loss.
-    
-    Formula: Q = ṁ × cp × ΔT
-    where ṁ = ρ × V × ACH / 3600
-    
-    Args:
-        building_volume: Building volume in m³
-        ventilation_rate: Air changes per hour (ACH)
-        indoor_temp: Indoor temperature in °C
-        outdoor_temp: Outdoor temperature in °C
-    
-    Returns:
-        Ventilation heat loss in W
+    환기에 의한 열손실을 계산합니다. (1.3 공식, 2.1 공식)
+
+    공식: Φ = ṁ × cp × ΔT
+    여기서 ṁ = ρ × V × ACH / 3600 (2.1 공식)
+
+    환기 열손실 계수: D_vent = V̇ × cp × ρ / 3600 (1.3 공식)
+    여기서 V̇ = V × ACH (환기량, m³/h)
+
+    매개변수:
+        building_volume: 건물 체적 V (m³)
+        ventilation_rate: 시간당 환기횟수 ACH (회/h)
+        indoor_temp: 실내온도 Ti (°C)
+        outdoor_temp: 외기온도 Te (°C)
+
+    반환값:
+        환기 열손실량 Φ (W)
     """
+    # 질량유량 계산: ṁ = ρ × V × ACH / 3600 (2.1 공식)
     mass_flow = (AIR_DENSITY * building_volume * ventilation_rate) / 3600
+    # 온도차 계산
     delta_t = indoor_temp - outdoor_temp
+    # 환기 열손실 = 질량유량 × 비열 × 온도차 (1.3 공식)
     return mass_flow * SPECIFIC_HEAT_AIR * delta_t
 
 
@@ -112,80 +91,51 @@ def calculate_total_building_loss(
     outdoor_temp: float
 ) -> Dict[str, float]:
     """
-    Calculate total heat loss for a building.
-    
-    Args:
-        wall_area: Wall area in m²
-        wall_u_value: Wall U-value in W/m²·K
-        roof_area: Roof area in m²
-        roof_u_value: Roof U-value in W/m²·K
-        floor_area: Floor area in m²
-        floor_u_value: Floor U-value in W/m²·K
-        window_area: Window area in m²
-        window_u_value: Window U-value in W/m²·K
-        building_volume: Building volume in m³
-        ventilation_rate: Ventilation rate (ACH)
-        indoor_temp: Indoor temperature in °C
-        outdoor_temp: Outdoor temperature in °C
-    
-    Returns:
-        Dictionary with component and total losses
+    건물의 총 열손실을 계산합니다. (1.4 공식)
+
+    공식: Φ_tot = D_tot × (Ti - Te)
+    여기서 D_tot = Σ(U × A) + D_vent
+
+    매개변수:
+        wall_area: 벽체 면적 (m²)
+        wall_u_value: 벽체 열관류율 (W/m²·K)
+        roof_area: 지붕 면적 (m²)
+        roof_u_value: 지붕 열관류율 (W/m²·K)
+        floor_area: 바닥 면적 (m²)
+        floor_u_value: 바닥 열관류율 (W/m²·K)
+        window_area: 창문 면적 (m²)
+        window_u_value: 창문 열관류율 (W/m²·K)
+        building_volume: 건물 체적 (m³)
+        ventilation_rate: 환기횟수 ACH (회/h)
+        indoor_temp: 실내온도 Ti (°C)
+        outdoor_temp: 외기온도 Te (°C)
+
+    반환값:
+        각 부위별 및 총 열손실을 담은 딕셔너리 (W)
     """
+    # 각 부위별 전도 열손실 계산 (1.4 공식)
     wall_loss = calculate_conductive_loss(wall_area, wall_u_value, indoor_temp, outdoor_temp)
     roof_loss = calculate_conductive_loss(roof_area, roof_u_value, indoor_temp, outdoor_temp)
     floor_loss = calculate_conductive_loss(floor_area, floor_u_value, indoor_temp, outdoor_temp)
     window_loss = calculate_conductive_loss(window_area, window_u_value, indoor_temp, outdoor_temp)
-    
+
+    # 총 전도 열손실 = 벽체 + 지붕 + 바닥 + 창문
     conductive_loss = wall_loss + roof_loss + floor_loss + window_loss
+
+    # 환기 열손실 계산 (1.3 공식)
     ventilation_loss = calculate_ventilation_loss(
         building_volume, ventilation_rate, indoor_temp, outdoor_temp
     )
-    
+
+    # 총 열부하 = 전도 열손실 + 환기 열손실 (1.4 공식)
     total_loss = conductive_loss + ventilation_loss
-    
+
     return {
-        'wall_loss': wall_loss,
-        'roof_loss': roof_loss,
-        'floor_loss': floor_loss,
-        'window_loss': window_loss,
-        'conductive_loss': conductive_loss,
-        'ventilation_loss': ventilation_loss,
-        'total_loss': total_loss
+        'wall_loss': wall_loss,           # 벽체 열손실 (W)
+        'roof_loss': roof_loss,           # 지붕 열손실 (W)
+        'floor_loss': floor_loss,         # 바닥 열손실 (W)
+        'window_loss': window_loss,       # 창문 열손실 (W)
+        'conductive_loss': conductive_loss,  # 총 전도 열손실 (W)
+        'ventilation_loss': ventilation_loss,  # 환기 열손실 (W)
+        'total_loss': total_loss          # 총 열손실 (W)
     }
-
-
-def solve_multi_zone_temperatures(
-    zones: list,
-    conductances: Dict[Tuple[str, str], float],
-    boundary_temps: Dict[str, float],
-    heat_sources: Dict[str, float]
-) -> Dict[str, float]:
-    """
-    Solve multi-zone heat transfer problem using matrix methods.
-    
-    This implements the Ax = b formulation where:
-    - A is the conductance matrix
-    - x is the unknown temperature vector
-    - b is the heat source vector (including boundary conditions)
-    
-    Args:
-        zones: List of zone names
-        conductances: Thermal conductances between zones (W/K)
-        boundary_temps: Known boundary temperatures (°C)
-        heat_sources: Heat sources in each zone (W)
-    
-    Returns:
-        Dictionary of zone temperatures
-    """
-    # Build thermal network matrix
-    K, Q = build_thermal_network_matrix(zones, conductances, boundary_temps)
-    
-    # Add internal heat sources
-    for i, zone in enumerate(zones):
-        if zone in heat_sources:
-            Q[i] += heat_sources[zone]
-    
-    # Solve system
-    temperatures = solve_linear_system(K, Q)
-    
-    return {zone: float(temperatures[i]) for i, zone in enumerate(zones)}

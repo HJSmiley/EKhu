@@ -1,89 +1,12 @@
-"""Transient thermal analysis using RC thermal model."""
+"""
+비정상 열전도 해석 모듈 (Transient Thermal Analysis using RC Model)
 
-import numpy as np
-from typing import List, Dict, Tuple
+이 모듈은 건축물의 비정상 열전도 해석을 위한 함수들을 제공합니다.
+- 1R1C 모델 기반 온도 계산 (5.1 공식)
+- 이산화된 열평형 계산 (5.2 공식)
+"""
 
-
-def rc_thermal_model_step(
-    T_indoor: float,
-    T_outdoor: float,
-    thermal_resistance: float,
-    thermal_capacity: float,
-    heat_input: float,
-    solar_gain: float,
-    timestep: float
-) -> float:
-    """
-    Calculate indoor temperature for next timestep using RC thermal model.
-    
-    RC model: C × dT/dt = (T_outdoor - T_indoor) / R + Φ + Q_solar
-    
-    Using forward Euler integration:
-    T_i(t+Δt) = T_i(t) + (Δt/C) × [(T_e - T_i)/R + Φ + Q_solar]
-    
-    Args:
-        T_indoor: Current indoor temperature in °C
-        T_outdoor: Outdoor temperature in °C
-        thermal_resistance: Thermal resistance in K/W
-        thermal_capacity: Thermal capacity in J/K
-        heat_input: Heating system input in W
-        solar_gain: Solar heat gain in W
-        timestep: Time step in seconds
-    
-    Returns:
-        New indoor temperature in °C
-    """
-    # Heat flow through envelope
-    Q_envelope = (T_outdoor - T_indoor) / thermal_resistance
-    
-    # Total heat input
-    Q_total = Q_envelope + heat_input + solar_gain
-    
-    # Temperature change
-    dT_dt = Q_total / thermal_capacity
-    
-    # New temperature
-    T_new = T_indoor + dT_dt * timestep
-    
-    return T_new
-
-
-def rc_thermal_model_implicit(
-    T_indoor: float,
-    T_outdoor: float,
-    thermal_resistance: float,
-    thermal_capacity: float,
-    heat_input: float,
-    solar_gain: float,
-    timestep: float
-) -> float:
-    """
-    Calculate indoor temperature using implicit (backward Euler) method.
-    
-    More stable than forward Euler for large timesteps.
-    
-    Args:
-        T_indoor: Current indoor temperature in °C
-        T_outdoor: Outdoor temperature in °C
-        thermal_resistance: Thermal resistance in K/W
-        thermal_capacity: Thermal capacity in J/K
-        heat_input: Heating system input in W
-        solar_gain: Solar heat gain in W
-        timestep: Time step in seconds
-    
-    Returns:
-        New indoor temperature in °C
-    """
-    # Coefficient for implicit scheme
-    alpha = timestep / (thermal_capacity * thermal_resistance)
-    
-    # Solve: T_new = (T_old + alpha × (T_outdoor + R × (Φ + Q_solar))) / (1 + alpha)
-    numerator = T_indoor + alpha * (T_outdoor + thermal_resistance * (heat_input + solar_gain))
-    denominator = 1 + alpha
-    
-    T_new = numerator / denominator
-    
-    return T_new
+from typing import List, Tuple
 
 
 def simulate_transient_response(
@@ -97,73 +20,54 @@ def simulate_transient_response(
     use_implicit: bool = True
 ) -> Tuple[List[float], List[float]]:
     """
-    Simulate transient thermal response over multiple timesteps.
-    
-    Args:
-        initial_temp: Initial indoor temperature in °C
-        outdoor_temps: List of outdoor temperatures in °C
-        solar_gains: List of solar heat gains in W
-        heating_inputs: List of heating system inputs in W
-        thermal_resistance: Thermal resistance in K/W
-        thermal_capacity: Thermal capacity in J/K
-        timestep: Time step in seconds
-        use_implicit: Use implicit (True) or explicit (False) integration
-    
-    Returns:
-        Tuple of (indoor temperatures, heating loads)
+    여러 시간단계에 걸친 비정상 열응답을 시뮬레이션합니다. (5.1, 5.2 공식)
+
+    1R1C 모델 (5.1 공식)과 이산화된 열평형 (5.2 공식)을 기반으로
+    시간에 따른 실내온도 변화를 계산합니다.
+
+    매개변수:
+        initial_temp: 초기 실내온도 (°C)
+        outdoor_temps: 외기온도 리스트 (°C)
+        solar_gains: 일사 획득량 리스트 (W)
+        heating_inputs: 난방 입력 리스트 (W)
+        thermal_resistance: 열저항 R (K/W)
+        thermal_capacity: 열용량 C (J/K)
+        timestep: 시간간격 dt (s)
+        use_implicit: 암시적(True) 또는 명시적(False) 적분법 선택
+
+    반환값:
+        (실내온도 리스트, 난방부하 리스트) 튜플
     """
     n_steps = len(outdoor_temps)
     indoor_temps = [initial_temp]
     heating_loads = []
-    
+
     T_current = initial_temp
-    
+
     for i in range(n_steps):
         T_outdoor = outdoor_temps[i]
         Q_solar = solar_gains[i]
         Q_heating = heating_inputs[i]
+
+        # 다음 시간단계 온도 계산 (5.2 공식 - 암시적 방법)
+        # 암시적 스킴 계수: α = dt / (C × R)
+        alpha = timestep / (thermal_capacity * thermal_resistance)
         
-        # Calculate next temperature
-        if use_implicit:
-            T_next = rc_thermal_model_implicit(
-                T_current, T_outdoor, thermal_resistance, thermal_capacity,
-                Q_heating, Q_solar, timestep
-            )
-        else:
-            T_next = rc_thermal_model_step(
-                T_current, T_outdoor, thermal_resistance, thermal_capacity,
-                Q_heating, Q_solar, timestep
-            )
-        
-        # Calculate heating load needed
+        # 풀이: T_new = (T_old + α × (Te + R × (Φ + Qsolar))) / (1 + α)
+        numerator = T_current + alpha * (T_outdoor + thermal_resistance * (Q_heating + Q_solar))
+        denominator = 1 + alpha
+        T_next = numerator / denominator
+
+        # 필요 난방부하 계산: Q_loss = (Ti - Te) / R
         Q_loss = (T_current - T_outdoor) / thermal_resistance
         Q_load = Q_loss - Q_solar
-        
+
         indoor_temps.append(T_next)
         heating_loads.append(Q_load)
-        
+
         T_current = T_next
-    
+
     return indoor_temps, heating_loads
-
-
-def calculate_thermal_time_constant(
-    thermal_resistance: float,
-    thermal_capacity: float
-) -> float:
-    """
-    Calculate thermal time constant of the building.
-    
-    τ = R × C
-    
-    Args:
-        thermal_resistance: Thermal resistance in K/W
-        thermal_capacity: Thermal capacity in J/K
-    
-    Returns:
-        Time constant in seconds
-    """
-    return thermal_resistance * thermal_capacity
 
 
 def estimate_thermal_capacity(
@@ -173,23 +77,27 @@ def estimate_thermal_capacity(
     specific_heat: float = 1000.0
 ) -> float:
     """
-    Estimate building thermal capacity from volume and materials.
-    
-    Args:
-        building_volume: Building volume in m³
-        wall_thickness: Average wall thickness in m
-        density: Material density in kg/m³
-        specific_heat: Specific heat capacity in J/kg·K
-    
-    Returns:
-        Thermal capacity in J/K
+    건물 체적과 재료 물성으로부터 열용량을 추정합니다. (5.1 공식 관련)
+
+    열용량 공식: C = m × cp = ρ × V × cp
+
+    1R1C 모델 (5.1 공식)에서 사용되는 열용량 C를 추정합니다.
+
+    매개변수:
+        building_volume: 건물 체적 (m³)
+        wall_thickness: 평균 벽 두께 (m, 기본값 0.3)
+        density: 재료 밀도 ρ (kg/m³, 기본값 1800.0)
+        specific_heat: 비열 cp (J/kg·K, 기본값 1000.0)
+
+    반환값:
+        열용량 C (J/K)
     """
-    # Estimate mass of building envelope
-    # Assume surface area is approximately 6 × volume^(2/3) for a cube
+    # 건물 외피 질량 추정
+    # 정육면체 가정 시 표면적 ≈ 6 × 체적^(2/3)
     surface_area = 6.0 * (building_volume ** (2.0 / 3.0))
     mass = surface_area * wall_thickness * density
-    
-    # Thermal capacity
+
+    # 열용량 = 질량 × 비열
     return mass * specific_heat
 
 
@@ -204,69 +112,36 @@ def estimate_thermal_resistance(
     window_u_value: float
 ) -> float:
     """
-    Estimate overall thermal resistance from building elements.
-    
-    For parallel resistances: 1/R_total = Σ(A_i × U_i)
-    
-    Args:
-        wall_area: Wall area in m²
-        wall_u_value: Wall U-value in W/m²·K
-        roof_area: Roof area in m²
-        roof_u_value: Roof U-value in W/m²·K
-        floor_area: Floor area in m²
-        floor_u_value: Floor U-value in W/m²·K
-        window_area: Window area in m²
-        window_u_value: Window U-value in W/m²·K
-    
-    Returns:
-        Overall thermal resistance in K/W
+    건물 부위별 열저항으로부터 총 열저항을 추정합니다. (1.2 공식 관련)
+
+    병렬 열저항 공식: 1/R_total = Σ(A_i × U_i) = D_tot
+
+    열관류량 (1.2 공식): D = (1/Rt) × A
+    따라서 총 열저항: R_total = 1 / Σ(A_i × U_i)
+
+    매개변수:
+        wall_area: 벽체 면적 (m²)
+        wall_u_value: 벽체 열관류율 U (W/m²·K)
+        roof_area: 지붕 면적 (m²)
+        roof_u_value: 지붕 열관류율 U (W/m²·K)
+        floor_area: 바닥 면적 (m²)
+        floor_u_value: 바닥 열관류율 U (W/m²·K)
+        window_area: 창문 면적 (m²)
+        window_u_value: 창문 열관류율 U (W/m²·K)
+
+    반환값:
+        총 열저항 R (K/W)
     """
-    # Total conductance
+    # 총 열관류량 (열전도도): D_tot = Σ(A_i × U_i) (1.2 공식)
     total_conductance = (
         wall_area * wall_u_value +
         roof_area * roof_u_value +
         floor_area * floor_u_value +
         window_area * window_u_value
     )
-    
-    # Overall resistance
+
+    # 총 열저항: R = 1 / D_tot
     if total_conductance > 0:
         return 1.0 / total_conductance
     else:
         return float('inf')
-
-
-def simulate_multiple_scenarios(
-    scenarios: Dict[str, Dict],
-    outdoor_temps: List[float],
-    solar_gains: List[float],
-    timestep: float
-) -> Dict[str, Tuple[List[float], List[float]]]:
-    """
-    Simulate multiple scenarios for comparison.
-    
-    Args:
-        scenarios: Dictionary of scenario parameters
-        outdoor_temps: List of outdoor temperatures
-        solar_gains: List of solar heat gains
-        timestep: Time step in seconds
-    
-    Returns:
-        Dictionary of results for each scenario
-    """
-    results = {}
-    
-    for name, params in scenarios.items():
-        initial_temp = params['initial_temp']
-        thermal_resistance = params['thermal_resistance']
-        thermal_capacity = params['thermal_capacity']
-        heating_inputs = params.get('heating_inputs', [0.0] * len(outdoor_temps))
-        
-        temps, loads = simulate_transient_response(
-            initial_temp, outdoor_temps, solar_gains, heating_inputs,
-            thermal_resistance, thermal_capacity, timestep
-        )
-        
-        results[name] = (temps, loads)
-    
-    return results

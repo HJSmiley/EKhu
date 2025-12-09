@@ -1,94 +1,94 @@
-"""Pydantic models for API responses."""
+"""API 응답을 위한 Pydantic 모델"""
 
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
 
 class HourlyResult(BaseModel):
-    """Hourly calculation results."""
+    """시간별 계산 결과"""
     
-    hour: int = Field(..., description="Hour of day (0-23)")
-    outdoor_temp: float = Field(..., description="Outdoor temperature in °C")
-    solar_radiation: float = Field(..., description="Solar radiation in W/m²")
-    conductive_loss: float = Field(..., description="Conductive heat loss in W")
-    ventilation_loss: float = Field(..., description="Ventilation heat loss in W")
-    solar_gain: float = Field(..., description="Solar heat gain in W")
-    longwave_radiation: float = Field(..., description="Longwave radiation in W")
-    radiation_heat_transfer: Optional[float] = Field(None, description="Radiation heat transfer in W")
-    net_load: float = Field(..., description="Net heating load in W")
-    indoor_temp_dynamic: Optional[float] = Field(None, description="Dynamic indoor temperature in °C")
+    hour: int = Field(..., description="시간 (0-23)")
+    outdoor_temp: float = Field(..., description="외기 온도 (°C)")
+    solar_radiation: float = Field(..., description="태양 복사 (W/m²)")
+    conductive_loss: float = Field(..., description="전도 열손실 (W)")
+    ventilation_loss: float = Field(..., description="환기 열손실 (W)")
+    solar_gain: float = Field(..., description="태양열 취득 (W)")
+    longwave_radiation: float = Field(..., description="장파 복사 (W)")
+    radiation_heat_transfer: Optional[float] = Field(None, description="복사 열전달 (W)")
+    net_load: float = Field(..., description="순 난방 부하 (W)")
+    indoor_temp_dynamic: Optional[float] = Field(None, description="동적 실내 온도 (°C)")
 
 
 class SimulationSummary(BaseModel):
-    """Summary statistics for simulation."""
+    """시뮬레이션 요약 통계"""
     
-    total_heating_load_kwh: float = Field(..., description="Total heating load in kWh")
-    peak_load_w: float = Field(..., description="Peak load in W")
-    average_load_w: float = Field(..., description="Average load in W")
-    floor_temperature: Optional[float] = Field(None, description="Floor temperature in °C")
-    radiator_output: Optional[float] = Field(None, description="Radiator output in W")
+    total_heating_load_kwh: float = Field(..., description="총 난방 부하 (kWh)")
+    peak_load_w: float = Field(..., description="최대 부하 (W)")
+    average_load_w: float = Field(..., description="평균 부하 (W)")
+    floor_temperature: Optional[float] = Field(None, description="바닥 온도 (°C)")
+    radiator_output: Optional[float] = Field(None, description="라디에이터 출력 (W)")
 
 
 class FullSimulationResponse(BaseModel):
-    """Response model for full heating load simulation."""
+    """전체 난방 부하 시뮬레이션 응답 모델"""
     
     hourly_results: List[HourlyResult]
     summary: SimulationSummary
 
 
 class SteadyStateResponse(BaseModel):
-    """Response model for steady-state conduction calculation."""
+    """정상 상태 전도 계산 응답 모델"""
     
-    conductive_loss: float = Field(..., description="Total conductive heat loss in W")
-    wall_loss: float = Field(..., description="Wall heat loss in W")
-    roof_loss: float = Field(..., description="Roof heat loss in W")
-    floor_loss: float = Field(..., description="Floor heat loss in W")
-    window_loss: float = Field(..., description="Window heat loss in W")
-    ventilation_loss: float = Field(..., description="Ventilation heat loss in W")
-    total_loss: float = Field(..., description="Total heat loss in W")
+    conductive_loss: float = Field(..., description="총 전도 열손실 (W)")
+    wall_loss: float = Field(..., description="벽 열손실 (W)")
+    roof_loss: float = Field(..., description="지붕 열손실 (W)")
+    floor_loss: float = Field(..., description="바닥 열손실 (W)")
+    window_loss: float = Field(..., description="창문 열손실 (W)")
+    ventilation_loss: float = Field(..., description="환기 열손실 (W)")
+    total_loss: float = Field(..., description="총 열손실 (W)")
 
 
 class RadiationResponse(BaseModel):
-    """Response model for radiation heat transfer calculation."""
+    """복사 열전달 계산 응답 모델"""
     
-    radiative_flux: float = Field(..., description="Radiative heat flux in W/m²")
-    floor_temperature: float = Field(..., description="Floor temperature in °C")
-    view_factors: dict = Field(..., description="View factors dictionary")
-    radiosity: dict = Field(..., description="Radiosity values")
+    radiative_flux: float = Field(..., description="복사 열유속 (W/m²)")
+    floor_temperature: float = Field(..., description="바닥 온도 (°C)")
+    view_factors: dict = Field(..., description="형태계수 딕셔너리")
+    radiosity: dict = Field(..., description="복사도 값")
 
 
 class TransientResponse(BaseModel):
-    """Response model for transient thermal simulation."""
+    """과도 열 시뮬레이션 응답 모델"""
     
-    hourly_temps: List[float] = Field(..., description="Indoor temperatures over time")
-    hourly_loads: List[float] = Field(..., description="Heating loads over time")
-    final_temperature: float = Field(..., description="Final indoor temperature in °C")
-    energy_stored: float = Field(..., description="Energy stored in thermal mass in J")
+    hourly_temps: List[float] = Field(..., description="시간에 따른 실내 온도")
+    hourly_loads: List[float] = Field(..., description="시간에 따른 난방 부하")
+    final_temperature: float = Field(..., description="최종 실내 온도 (°C)")
+    energy_stored: float = Field(..., description="열질량에 저장된 에너지 (J)")
 
 
 class GlasshouseResponse(BaseModel):
-    """Response model for glasshouse/passive heating calculation."""
+    """온실/수동 난방 계산 응답 모델"""
     
-    interior_temp: float = Field(..., description="Interior temperature in °C")
-    glass_temp: float = Field(..., description="Glass temperature in °C")
-    collector_temp: float = Field(..., description="Collector temperature in °C")
-    heating_load: float = Field(..., description="Net heating load in W")
-    solar_absorbed: float = Field(..., description="Solar energy absorbed in W")
-    iterations: int = Field(..., description="Number of iterations to converge")
+    interior_temp: float = Field(..., description="실내 온도 (°C)")
+    glass_temp: float = Field(..., description="유리 온도 (°C)")
+    collector_temp: float = Field(..., description="집열판 온도 (°C)")
+    heating_load: float = Field(..., description="순 난방 부하 (W)")
+    solar_absorbed: float = Field(..., description="흡수된 태양 에너지 (W)")
+    iterations: int = Field(..., description="수렴까지의 반복 횟수")
 
 
 class ClimateData(BaseModel):
-    """Hourly climate data point."""
+    """시간별 기후 데이터 포인트"""
     
-    hour: int = Field(..., description="Hour of day (0-23)")
-    outdoor_temp: float = Field(..., description="Outdoor temperature in °C")
-    solar_radiation: float = Field(..., description="Solar radiation in W/m²")
-    sky_temp: float = Field(..., description="Sky temperature in °C")
-    solar_elevation_deg: float = Field(..., description="Solar elevation angle in degrees")
+    hour: int = Field(..., description="시간 (0-23)")
+    outdoor_temp: float = Field(..., description="외기 온도 (°C)")
+    solar_radiation: float = Field(..., description="태양 복사 (W/m²)")
+    sky_temp: float = Field(..., description="하늘 온도 (°C)")
+    solar_elevation_deg: float = Field(..., description="태양 고도각 (도)")
 
 
 class ClimateResponse(BaseModel):
-    """Response model for climate data generation."""
+    """기후 데이터 생성 응답 모델"""
     
     climate_data: List[ClimateData]
     latitude: float

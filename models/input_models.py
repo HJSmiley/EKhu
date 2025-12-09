@@ -1,50 +1,47 @@
-"""Pydantic models for input validation."""
+"""입력 검증을 위한 Pydantic 모델"""
 
 from pydantic import BaseModel, Field
 from typing import Optional
 
 
 class BuildingParams(BaseModel):
-    """Building envelope and system parameters."""
+    """건물 외피 및 시스템 매개변수"""
     
-    wall_area: float = Field(..., gt=0, description="Wall area in m²")
-    wall_u_value: float = Field(..., gt=0, description="Wall U-value in W/m²·K")
-    roof_area: float = Field(..., gt=0, description="Roof area in m²")
-    roof_u_value: float = Field(..., gt=0, description="Roof U-value in W/m²·K")
-    floor_area: float = Field(..., gt=0, description="Floor area in m²")
-    floor_u_value: float = Field(..., gt=0, description="Floor U-value in W/m²·K")
-    window_area: float = Field(..., gt=0, description="Window area in m²")
-    window_u_value: float = Field(..., gt=0, description="Window U-value in W/m²·K")
-    shgc: float = Field(..., ge=0, le=1, description="Solar heat gain coefficient")
-    ventilation_rate: float = Field(..., gt=0, description="Ventilation rate (ACH)")
-    building_volume: float = Field(..., gt=0, description="Building volume in m³")
-    indoor_temp: float = Field(..., description="Indoor temperature in °C")
+    wall_area: float = Field(..., gt=0, description="벽 면적 (m²)")
+    wall_u_value: float = Field(..., gt=0, description="벽 열관류율 (W/m²·K)")
+    roof_area: float = Field(..., gt=0, description="지붕 면적 (m²)")
+    roof_u_value: float = Field(..., gt=0, description="지붕 열관류율 (W/m²·K)")
+    floor_area: float = Field(..., gt=0, description="바닥 면적 (m²)")
+    floor_u_value: float = Field(..., gt=0, description="바닥 열관류율 (W/m²·K)")
+    window_area: float = Field(..., gt=0, description="창문 면적 (m²)")
+    window_u_value: float = Field(..., gt=0, description="창문 열관류율 (W/m²·K)")
+    shgc: float = Field(..., ge=0, le=1, description="태양열 취득 계수")
+    ventilation_rate: float = Field(..., gt=0, description="환기율 (ACH)")
+    building_volume: float = Field(..., gt=0, description="건물 체적 (m³)")
+    indoor_temp: float = Field(..., description="실내 온도 (°C)")
     
-    # Optional parameters for advanced calculations
-    emissivity: Optional[float] = Field(0.85, ge=0, le=1, description="Surface emissivity")
-    reflectivity: Optional[float] = Field(0.15, ge=0, le=1, description="Surface reflectivity")
-    thermal_capacity: Optional[float] = Field(1e7, gt=0, description="Thermal capacity in J/K")
-    thermal_resistance: Optional[float] = Field(8e-3, gt=0, description="Thermal resistance in K/W")
+    # 고급 계산을 위한 선택적 매개변수
+    emissivity: Optional[float] = Field(0.85, ge=0, le=1, description="표면 방사율")
 
 
 class ClimateParams(BaseModel):
-    """Climate location and time parameters."""
+    """기후 위치 및 시간 매개변수"""
     
-    latitude: float = Field(..., ge=-90, le=90, description="Latitude in degrees")
-    longitude: float = Field(..., ge=-180, le=180, description="Longitude in degrees")
-    day_of_year: int = Field(15, ge=1, le=365, description="Day of year (1-365)")
+    latitude: float = Field(..., ge=-90, le=90, description="위도 (도)")
+    longitude: float = Field(..., ge=-180, le=180, description="경도 (도)")
+    day_of_year: int = Field(15, ge=1, le=365, description="연중 일수 (1-365)")
 
 
 class SimulationOptions(BaseModel):
-    """Simulation configuration options."""
+    """시뮬레이션 구성 옵션"""
     
-    include_radiation: bool = Field(True, description="Include radiation heat transfer")
-    include_transient: bool = Field(True, description="Include transient effects")
-    timestep_seconds: int = Field(3600, gt=0, description="Simulation timestep in seconds")
+    include_radiation: bool = Field(True, description="복사 열전달 포함")
+    include_transient: bool = Field(True, description="과도 효과 포함")
+    timestep_seconds: int = Field(3600, gt=0, description="시뮬레이션 시간 간격 (초)")
 
 
 class FullSimulationRequest(BaseModel):
-    """Request model for full heating load simulation."""
+    """전체 난방 부하 시뮬레이션 요청 모델"""
     
     building: BuildingParams
     climate: ClimateParams
@@ -52,21 +49,21 @@ class FullSimulationRequest(BaseModel):
 
 
 class SteadyStateRequest(BaseModel):
-    """Request model for steady-state conduction calculation."""
+    """정상 상태 전도 계산 요청 모델"""
     
     building: BuildingParams
     climate: ClimateParams
 
 
 class RadiationRequest(BaseModel):
-    """Request model for radiation heat transfer calculation."""
+    """복사 열전달 계산 요청 모델"""
     
     building: BuildingParams
     climate: ClimateParams
 
 
 class TransientRequest(BaseModel):
-    """Request model for transient thermal simulation."""
+    """과도 열 시뮬레이션 요청 모델"""
     
     building: BuildingParams
     climate: ClimateParams
@@ -74,15 +71,7 @@ class TransientRequest(BaseModel):
 
 
 class GlasshouseRequest(BaseModel):
-    """Request model for glasshouse/passive heating calculation."""
+    """온실/수동 난방 계산 요청 모델"""
     
     building: BuildingParams
     climate: ClimateParams
-
-
-class ClimateRequest(BaseModel):
-    """Request model for climate data generation."""
-    
-    latitude: float = Field(..., ge=-90, le=90, description="Latitude in degrees")
-    longitude: float = Field(..., ge=-180, le=180, description="Longitude in degrees")
-    day_of_year: int = Field(15, ge=1, le=365, description="Day of year (1-365)")
