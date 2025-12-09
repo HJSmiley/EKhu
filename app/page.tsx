@@ -5,12 +5,7 @@ import dynamic from 'next/dynamic';
 import BuildingInputForm from '@/components/BuildingInputForm';
 import ResultsVisualization from '@/components/ResultsVisualization';
 import ResultsTable from '@/components/ResultsTable';
-import {
-  BuildingParams,
-  SimulationResult,
-  generateHourlyClimateData,
-  runHourlySimulation,
-} from '@/lib/heatingLoad';
+import { BuildingParams, SimulationResult } from '@/lib/heatingLoad';
 import {
   calculateHeatingLoad,
   checkBackendHealth,
@@ -40,7 +35,6 @@ export default function Home() {
     indoorTemp: 20,
   });
   const [simulationResults, setSimulationResults] = useState<SimulationResult | null>(null);
-  const [useBackend, setUseBackend] = useState(false);
   const [backendAvailable, setBackendAvailable] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -49,7 +43,6 @@ export default function Home() {
   useEffect(() => {
     checkBackendHealth().then((available) => {
       setBackendAvailable(available);
-      setUseBackend(available);
     });
   }, []);
 
@@ -80,48 +73,32 @@ export default function Home() {
     setErrorMessage(null);
 
     try {
-      if (useBackend && backendAvailable) {
-        // Use Python backend
-        const backendResults = await calculateHeatingLoad(
-          buildingParams,
-          {
-            latitude: location.latitude,
-            longitude: location.longitude,
-            day_of_year: 15,
-          },
-          {
-            include_radiation: true,
-            include_transient: true,
-            timestep_seconds: 3600,
-          }
-        );
-        setSimulationResults(convertBackendResultsToLocal(backendResults));
-      } else {
-        // Use local TypeScript calculations
-        const climateData = generateHourlyClimateData(location.latitude, location.longitude);
-        const results = runHourlySimulation(buildingParams, climateData);
-        setSimulationResults(results);
-      }
+      // Always use Python backend
+      const backendResults = await calculateHeatingLoad(
+        buildingParams,
+        {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          day_of_year: 15,
+        },
+        {
+          include_radiation: true,
+          include_transient: true,
+          timestep_seconds: 3600,
+        }
+      );
+      setSimulationResults(convertBackendResultsToLocal(backendResults));
     } catch (error) {
       console.error('Simulation error:', error);
-      setErrorMessage(error instanceof Error ? error.message : 'Simulation failed');
-      
-      // Fallback to local calculation
-      if (useBackend) {
-        console.log('Falling back to local calculation');
-        const climateData = generateHourlyClimateData(location.latitude, location.longitude);
-        const results = runHourlySimulation(buildingParams, climateData);
-        setSimulationResults(results);
-      }
+      setErrorMessage(
+        error instanceof Error 
+          ? `Backend error: ${error.message}. Please ensure the Python backend is running.`
+          : 'Simulation failed. Please ensure the Python backend is running.'
+      );
     } finally {
       setIsSimulating(false);
     }
   };
-
-  // Run initial simulation on mount
-  useEffect(() => {
-    handleSimulate();
-  }, []);
 
   const containerStyle = {
     minHeight: '100vh',
@@ -181,19 +158,6 @@ export default function Home() {
     opacity: isSimulating ? 0.7 : 1,
   };
 
-  const toggleContainerStyle = {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: '12px',
-    marginTop: '16px',
-  };
-
-  const toggleLabelStyle = {
-    fontSize: '14px',
-    color: '#6b7280',
-  };
-
   return (
     <div style={containerStyle}>
       <header style={headerStyle}>
@@ -227,27 +191,7 @@ export default function Home() {
           {isSimulating ? '⏳ Simulating...' : '🔄 Run Simulation'}
         </button>
 
-        <div style={toggleContainerStyle}>
-          <span style={toggleLabelStyle}>
-            Calculation Engine: {useBackend ? '🐍 Python Backend' : '📝 Local TypeScript'}
-          </span>
-          {backendAvailable && (
-            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={useBackend}
-                onChange={(e) => setUseBackend(e.target.checked)}
-                style={{ marginRight: '8px' }}
-              />
-              Use Python Backend
-            </label>
-          )}
-          {!backendAvailable && (
-            <span style={{ ...toggleLabelStyle, color: '#f59e0b' }}>
-              ⚠️ Backend unavailable (using local)
-            </span>
-          )}
-        </div>
+
 
         {errorMessage && (
           <div style={{
