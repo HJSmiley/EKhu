@@ -1,6 +1,5 @@
 """Open-Meteo API를 사용한 기후 데이터 생성 모듈"""
 
-import math
 import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
@@ -93,135 +92,43 @@ def get_weather_from_api(lat: float, lon: float) -> Optional[Dict]:
         return None
 
 
-def generate_outdoor_temperature(
-    hour: int,
-    latitude: float,
-    day_of_year: int = 15
-) -> float:
+def generate_hourly_climate_data(latitude: float, longitude: float) -> List[Dict]:
     """
-    위치와 시간을 기반으로 합성 외기 온도를 생성합니다.
-    (API를 사용할 수 없을 때의 대체 함수)
-    
-    Args:
-        hour: 시간 (0-23)
-        latitude: 위도 (도)
-        day_of_year: 연중 일수 (1-365)
-    
-    Returns:
-        외기 온도 (°C)
-    """
-    # 기준 온도는 위도에 따라 달라짐
-    # 참고: 서울(북위 37도)의 겨울 온도는 약 -5°C
-    base_temp = -5.0 - abs(latitude - 37.0) * 0.7
-    
-    # 일일 진폭 (일교차)
-    daily_amplitude = 6.0
-    
-    # 온도는 14시경에 최고점에 도달
-    temp = base_temp + daily_amplitude * math.sin(
-        ((hour - 8) / 24) * 2 * math.pi
-    )
-    
-    return temp
+    위치 기반 25시간(오늘 00시 ~ 내일 00시) 기후 데이터를 생성합니다.
 
-
-def generate_hourly_climate_data(
-    latitude: float,
-    longitude: float,
-    day_of_year: int = 15,
-    use_api: bool = True
-) -> List[Dict]:
-    """
-    Generate 24 hours of climate data for a given location.
-    실제 날씨 API를 사용하거나 합성 데이터를 생성합니다.
-    
     Args:
-        latitude: Latitude in degrees
-        longitude: Longitude in degrees
-        day_of_year: Day of year (1-365, default 15 for mid-January)
-        use_api: True면 Open-Meteo API 사용, False면 합성 데이터 사용
-    
+        latitude: 위도
+        longitude: 경도
+
     Returns:
-        List of hourly climate data dictionaries (24시간)
+        시간별 기후 데이터 리스트 (25시간)
     """
+    api_data = get_weather_from_api(latitude, longitude)
+
+    if not api_data:
+        raise Exception("날씨 API 호출 실패")
+
+    hourly = api_data.get("hourly", {})
+    temps = hourly.get("temperature_2m", [])
+    humidity = hourly.get("relative_humidity_2m", [])
+    direct_rad = hourly.get("direct_radiation", [])
+    diffuse_rad = hourly.get("diffuse_radiation", [])
+    shortwave_rad = hourly.get("shortwave_radiation", [])
+
     climate_data = []
-    
-    # API를 사용하여 실제 날씨 데이터 가져오기
-    if use_api:
-        api_data = get_weather_from_api(latitude, longitude)
-        
-        if api_data:
-            hourly = api_data.get("hourly", {})
-            temps = hourly.get("temperature_2m", [])
-            humidity = hourly.get("relative_humidity_2m", [])
-            direct_rad = hourly.get("direct_radiation", [])
-            diffuse_rad = hourly.get("diffuse_radiation", [])
-            shortwave_rad = hourly.get("shortwave_radiation", [])
-            
-            # 24시간 데이터만 사용 (25시간 중 첫 24시간)
-            for hour in range(min(24, len(temps))):
-                outdoor_temp = temps[hour] if temps[hour] is not None else 0.0
-                solar_radiation = shortwave_rad[hour] if shortwave_rad[hour] is not None else 0.0
-                
-                # Sky temperature for longwave radiation
-                sky_temp = calculate_sky_temperature(outdoor_temp)
-                
-                climate_data.append({
-                    'hour': hour,
-                    'outdoor_temp': outdoor_temp,
-                    'solar_radiation': solar_radiation,
-                    'sky_temp': sky_temp,
-                    'solar_elevation_deg': 0.0,  # API에서 직접 제공하지 않음
-                    'humidity': humidity[hour] if humidity and humidity[hour] is not None else 50.0,
-                    'direct_radiation': direct_rad[hour] if direct_rad and direct_rad[hour] is not None else 0.0,
-                    'diffuse_radiation': diffuse_rad[hour] if diffuse_rad and diffuse_rad[hour] is not None else 0.0,
-                    'data_source': 'api'
-                })
-            
-            # 성공적으로 API 데이터를 가져왔으면 반환
-            if len(climate_data) == 24:
-                return climate_data
-            
-            # 데이터가 부족하면 합성 데이터로 폴백
-            print(f"API 데이터 부족 ({len(climate_data)}시간), 합성 데이터로 전환")
-            climate_data = []
-    
-    # 합성 데이터 생성 (API 실패 시 또는 use_api=False)
-    from calculations.solar import (
-        calculate_declination,
-        calculate_hour_angle,
-        calculate_solar_elevation,
-        calculate_solar_radiation
-    )
-    
-    declination = calculate_declination(day_of_year)
-    
-    for hour in range(24):
-        # 태양 위치
-        hour_angle = calculate_hour_angle(hour)
-        solar_elevation = calculate_solar_elevation(latitude, declination, hour_angle)
-        
-        # 태양 복사
-        DNI, GHI = calculate_solar_radiation(solar_elevation)
-        
-        # 외기 온도
-        outdoor_temp = generate_outdoor_temperature(hour, latitude, day_of_year)
-        
-        # 장파 복사를 위한 하늘 온도
+    for hour in range(min(25, len(temps))):
+        outdoor_temp = temps[hour] if temps[hour] is not None else 0.0
+        solar_radiation = shortwave_rad[hour] if shortwave_rad[hour] is not None else 0.0
         sky_temp = calculate_sky_temperature(outdoor_temp)
-        
+
         climate_data.append({
             'hour': hour,
             'outdoor_temp': outdoor_temp,
-            'solar_radiation': GHI,
+            'solar_radiation': solar_radiation,
             'sky_temp': sky_temp,
-            'solar_elevation_deg': math.degrees(solar_elevation),
-            'declination': declination,
-            'hour_angle': hour_angle,
-            'data_source': 'synthetic'
+            'humidity': humidity[hour] if humidity and humidity[hour] is not None else 50.0,
+            'direct_radiation': direct_rad[hour] if direct_rad and direct_rad[hour] is not None else 0.0,
+            'diffuse_radiation': diffuse_rad[hour] if diffuse_rad and diffuse_rad[hour] is not None else 0.0,
         })
-    
+
     return climate_data
-
-
-

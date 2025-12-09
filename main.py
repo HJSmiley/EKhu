@@ -103,10 +103,8 @@ async def full_simulation(request: FullSimulationRequest):
         
         # Generate climate data (use_api=True로 실제 날씨 데이터 사용)
         climate_data = generate_hourly_climate_data(
-            request.climate.latitude,
-            request.climate.longitude,
-            request.climate.day_of_year,
-            use_api=True
+            latitude=request.climate.latitude,
+            longitude=request.climate.longitude
         )
         
         # Constants
