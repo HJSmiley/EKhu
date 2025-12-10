@@ -79,18 +79,21 @@ class GlasshouseResponse(BaseModel):
 
 class ClimateData(BaseModel):
     """시간별 기후 데이터 포인트"""
-    
-    hour: int = Field(..., description="시간 (0-23)")
+
+    hour: int = Field(..., description="시간 (0-24)")
     outdoor_temp: float = Field(..., description="외기 온도 (°C)")
     solar_radiation: float = Field(..., description="태양 복사 (W/m²)")
     sky_temp: float = Field(..., description="하늘 온도 (°C)")
-    solar_elevation_deg: float = Field(..., description="태양 고도각 (도)")
+    humidity: Optional[float] = Field(None, description="상대습도 (%)")
+    direct_radiation: Optional[float] = Field(None, description="직달일사량 (W/m²)")
+    diffuse_radiation: Optional[float] = Field(None, description="산란일사량 (W/m²)")
+    cloud_cover: Optional[float] = Field(None, description="운량 (%)")
+    data_type: Optional[str] = Field(None, description="데이터 유형 (observation/forecast)")
 
 
 class ClimateResponse(BaseModel):
     """기후 데이터 생성 응답 모델"""
-    
+
     climate_data: List[ClimateData]
     latitude: float
     longitude: float
-    day_of_year: int

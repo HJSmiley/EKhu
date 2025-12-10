@@ -457,7 +457,12 @@ async def generate_climate(latitude: float, longitude: float):
                 hour=d['hour'],
                 outdoor_temp=d['outdoor_temp'],
                 solar_radiation=d['solar_radiation'],
-                sky_temp=d['sky_temp']
+                sky_temp=d['sky_temp'],
+                humidity=d.get('humidity'),
+                direct_radiation=d.get('direct_radiation'),
+                diffuse_radiation=d.get('diffuse_radiation'),
+                cloud_cover=d.get('cloud_cover'),
+                data_type=d.get('data_type')
             )
             for d in climate_data
         ]

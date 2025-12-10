@@ -26,10 +26,9 @@ class BuildingParams(BaseModel):
 
 class ClimateParams(BaseModel):
     """기후 위치 및 시간 매개변수"""
-    
+
     latitude: float = Field(..., ge=-90, le=90, description="위도 (도)")
     longitude: float = Field(..., ge=-180, le=180, description="경도 (도)")
-    day_of_year: int = Field(15, ge=1, le=365, description="연중 일수 (1-365)")
 
 
 class SimulationOptions(BaseModel):
