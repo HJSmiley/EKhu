@@ -23,7 +23,11 @@ export interface HourlyClimateData {
   outdoorTemp: number;
   solarRadiation: number;
   skyTemp: number;
-  solarElevationDeg: number;
+  humidity?: number;
+  directRadiation?: number;
+  diffuseRadiation?: number;
+  cloudCover?: number;
+  dataType?: 'observation' | 'forecast';
 }
 
 export interface HourlyResult {

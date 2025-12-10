@@ -9,7 +9,6 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:800
 export interface ClimateParams {
   latitude: number;
   longitude: number;
-  day_of_year: number;
 }
 
 export interface SimulationOptions {
@@ -82,14 +81,17 @@ export interface ClimateData {
   outdoor_temp: number;
   solar_radiation: number;
   sky_temp: number;
-  solar_elevation_deg: number;
+  humidity?: number;
+  direct_radiation?: number;
+  diffuse_radiation?: number;
+  cloud_cover?: number;
+  data_type?: 'observation' | 'forecast';
 }
 
 export interface ClimateResponse {
   climate_data: ClimateData[];
   latitude: number;
   longitude: number;
-  day_of_year: number;
 }
 
 /**
@@ -244,11 +246,10 @@ export async function calculateGlasshouse(
  */
 export async function generateClimateData(
   latitude: number,
-  longitude: number,
-  dayOfYear: number = 15
+  longitude: number
 ): Promise<ClimateResponse> {
   const response = await fetch(
-    `${BACKEND_URL}/api/v1/climate/generate?latitude=${latitude}&longitude=${longitude}&day_of_year=${dayOfYear}`
+    `${BACKEND_URL}/api/v1/climate/generate?latitude=${latitude}&longitude=${longitude}`
   );
 
   if (!response.ok) {
