@@ -79,7 +79,6 @@ export default function Home() {
         {
           latitude: location.latitude,
           longitude: location.longitude,
-          day_of_year: 15,
         },
         {
           include_radiation: true,
