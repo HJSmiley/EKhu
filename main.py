@@ -101,10 +101,10 @@ async def full_simulation(request: FullSimulationRequest):
     try:
         logger.info(f"Full simulation request for lat={request.climate.latitude}, lon={request.climate.longitude}")
         
-        # Generate climate data (use_api=True로 실제 날씨 데이터 사용)
+        # Generate climate data
         climate_data = generate_hourly_climate_data(
-            latitude=request.climate.latitude,
-            longitude=request.climate.longitude
+            request.climate.latitude,
+            request.climate.longitude
         )
         
         # Constants
@@ -217,12 +217,10 @@ async def steady_state_calculation(request: SteadyStateRequest):
     try:
         logger.info("Steady-state calculation request")
         
-        # Generate climate data to get average outdoor temp (실제 API 사용)
+        # Generate climate data to get average outdoor temp
         climate_data = generate_hourly_climate_data(
             request.climate.latitude,
-            request.climate.longitude,
-            request.climate.day_of_year,
-            use_api=True
+            request.climate.longitude
         )
         avg_outdoor_temp = sum(d['outdoor_temp'] for d in climate_data) / len(climate_data)
         
@@ -329,14 +327,12 @@ async def transient_calculation(request: TransientRequest):
     try:
         logger.info("Transient calculation request")
         
-        # Generate climate data (실제 API 사용)
+        # Generate climate data
         climate_data = generate_hourly_climate_data(
             request.climate.latitude,
-            request.climate.longitude,
-            request.climate.day_of_year,
-            use_api=True
+            request.climate.longitude
         )
-        
+
         # Extract outdoor temps and solar gains
         outdoor_temps = [d['outdoor_temp'] for d in climate_data]
         solar_gains = [
@@ -394,14 +390,12 @@ async def glasshouse_calculation(request: GlasshouseRequest):
     try:
         logger.info("Glasshouse calculation request")
         
-        # Generate climate data (실제 API 사용)
+        # Generate climate data
         climate_data = generate_hourly_climate_data(
             request.climate.latitude,
-            request.climate.longitude,
-            request.climate.day_of_year,
-            use_api=True
+            request.climate.longitude
         )
-        
+
         # Use peak solar hour (around noon)
         peak_hour_data = max(climate_data, key=lambda x: x['solar_radiation'])
         
@@ -442,45 +436,36 @@ async def glasshouse_calculation(request: GlasshouseRequest):
 
 
 @app.get("/api/v1/climate/generate", response_model=ClimateResponse)
-async def generate_climate(
-    latitude: float,
-    longitude: float,
-    day_of_year: int = 15,
-    use_api: bool = True
-):
+async def generate_climate(latitude: float, longitude: float):
     """
     Generate hourly climate data for given location.
-    실제 날씨 API 또는 합성 데이터를 사용합니다.
-    
+    Open-Meteo API를 사용하여 25시간(오늘 00시 ~ 내일 00시) 데이터를 반환합니다.
+
     Args:
         latitude: 위도
         longitude: 경도
-        day_of_year: 연중 일수 (1-365)
-        use_api: True면 Open-Meteo API 사용, False면 합성 데이터
     """
     try:
-        logger.info(f"Climate generation request for lat={latitude}, lon={longitude}, use_api={use_api}")
-        
+        logger.info(f"Climate generation request for lat={latitude}, lon={longitude}")
+
         # Generate climate data
-        climate_data = generate_hourly_climate_data(latitude, longitude, day_of_year, use_api)
-        
+        climate_data = generate_hourly_climate_data(latitude, longitude)
+
         # Convert to response model
         climate_list = [
             ClimateData(
                 hour=d['hour'],
                 outdoor_temp=d['outdoor_temp'],
                 solar_radiation=d['solar_radiation'],
-                sky_temp=d['sky_temp'],
-                solar_elevation_deg=d['solar_elevation_deg']
+                sky_temp=d['sky_temp']
             )
             for d in climate_data
         ]
-        
+
         return ClimateResponse(
             climate_data=climate_list,
             latitude=latitude,
-            longitude=longitude,
-            day_of_year=day_of_year
+            longitude=longitude
         )
         
     except Exception as e:
