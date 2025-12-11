@@ -63,14 +63,7 @@ class RadiationRequest(BaseModel):
 
 class TransientRequest(BaseModel):
     """과도 열 시뮬레이션 요청 모델"""
-    
+
     building: BuildingParams
     climate: ClimateParams
     simulation_options: Optional[SimulationOptions] = SimulationOptions()
-
-
-class GlasshouseRequest(BaseModel):
-    """온실/수동 난방 계산 요청 모델"""
-    
-    building: BuildingParams
-    climate: ClimateParams

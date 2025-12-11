@@ -10,15 +10,13 @@ from models.input_models import (
     FullSimulationRequest,
     SteadyStateRequest,
     RadiationRequest,
-    TransientRequest,
-    GlasshouseRequest
+    TransientRequest
 )
 from models.output_models import (
     FullSimulationResponse,
     SteadyStateResponse,
     RadiationResponse,
     TransientResponse,
-    GlasshouseResponse,
     ClimateResponse,
     HourlyResult,
     SimulationSummary,
@@ -35,10 +33,6 @@ from calculations.transient import (
     simulate_transient_response,
     estimate_thermal_capacity,
     estimate_thermal_resistance
-)
-from calculations.glasshouse import (
-    solve_glasshouse_temperatures,
-    calculate_passive_solar_gain
 )
 
 # Load environment variables
@@ -80,7 +74,6 @@ async def root():
             "steady_state": "/api/v1/heating-load/steady-state",
             "radiation": "/api/v1/heating-load/radiation",
             "transient": "/api/v1/heating-load/transient",
-            "glasshouse": "/api/v1/heating-load/glasshouse",
             "climate": "/api/v1/climate/generate"
         }
     }
@@ -379,59 +372,6 @@ async def transient_calculation(request: TransientRequest):
         
     except Exception as e:
         logger.error(f"Error in transient calculation: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/v1/heating-load/glasshouse", response_model=GlasshouseResponse)
-async def glasshouse_calculation(request: GlasshouseRequest):
-    """
-    Specialized glasshouse/passive heating calculation.
-    """
-    try:
-        logger.info("Glasshouse calculation request")
-        
-        # Generate climate data
-        climate_data = generate_hourly_climate_data(
-            request.climate.latitude,
-            request.climate.longitude
-        )
-
-        # Use peak solar hour (around noon)
-        peak_hour_data = max(climate_data, key=lambda x: x['solar_radiation'])
-        
-        # Solve glasshouse temperatures
-        T_interior, T_glass, T_collector, iterations = solve_glasshouse_temperatures(
-            peak_hour_data['outdoor_temp'],
-            peak_hour_data['solar_radiation'],
-            request.building.window_area,
-            request.building.floor_area * 0.8
-        )
-        
-        # Calculate passive solar gain
-        solar_absorbed = calculate_passive_solar_gain(
-            request.building.window_area,
-            0.85,  # Glass transmittance
-            peak_hour_data['solar_radiation'],
-            request.building.floor_area * 0.8,
-            0.90  # Collector absorptance
-        )
-        
-        # Calculate heating load
-        U_back = 0.5
-        heating_load = max(0, U_back * request.building.window_area * 
-                          (request.building.indoor_temp - peak_hour_data['outdoor_temp']) - solar_absorbed)
-        
-        return GlasshouseResponse(
-            interior_temp=T_interior,
-            glass_temp=T_glass,
-            collector_temp=T_collector,
-            heating_load=heating_load,
-            solar_absorbed=solar_absorbed,
-            iterations=iterations
-        )
-        
-    except Exception as e:
-        logger.error(f"Error in glasshouse calculation: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

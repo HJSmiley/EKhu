@@ -59,22 +59,11 @@ class RadiationResponse(BaseModel):
 
 class TransientResponse(BaseModel):
     """과도 열 시뮬레이션 응답 모델"""
-    
+
     hourly_temps: List[float] = Field(..., description="시간에 따른 실내 온도")
     hourly_loads: List[float] = Field(..., description="시간에 따른 난방 부하")
     final_temperature: float = Field(..., description="최종 실내 온도 (°C)")
     energy_stored: float = Field(..., description="열질량에 저장된 에너지 (J)")
-
-
-class GlasshouseResponse(BaseModel):
-    """온실/수동 난방 계산 응답 모델"""
-    
-    interior_temp: float = Field(..., description="실내 온도 (°C)")
-    glass_temp: float = Field(..., description="유리 온도 (°C)")
-    collector_temp: float = Field(..., description="집열판 온도 (°C)")
-    heating_load: float = Field(..., description="순 난방 부하 (W)")
-    solar_absorbed: float = Field(..., description="흡수된 태양 에너지 (W)")
-    iterations: int = Field(..., description="수렴까지의 반복 횟수")
 
 
 class ClimateData(BaseModel):
