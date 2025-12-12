@@ -5,8 +5,6 @@
 - 선형 시스템 풀이: [A][x] = [b] (2.2 공식)
 - 형상계수(View Factor) 계산 (4.2, 4.3 공식)
 - 복사도(Radiosity) 시스템 풀이 (4.4 공식)
-- 다실 열전도 해석 (2.2 공식)
-- 열 네트워크 행렬 구성 (2.2 공식)
 """
 
 import numpy as np
@@ -18,7 +16,6 @@ def solve_linear_system(A: np.ndarray, b: np.ndarray) -> np.ndarray:
     선형 시스템 [A][x] = [b]를 풀이합니다. (2.2 공식)
 
     NumPy의 선형대수 풀이기를 사용하여 행렬 방정식을 풉니다.
-    다실 열평형 해석에서 온도 벡터를 구하는 데 사용됩니다.
 
     매개변수:
         A: 계수 행렬 (n × n)

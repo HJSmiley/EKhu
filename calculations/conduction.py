@@ -2,11 +2,8 @@
 정상상태 열전도 계산 모듈 (Steady-state Conduction Heat Transfer)
 
 이 모듈은 건축물의 정상상태 열전달 계산을 위한 함수들을 제공합니다.
-- 열저항 계산
-- 열관류율(U-value) 계산
 - 전도 열손실 계산
 - 환기 열손실 계산
-- 다실 열평형 계산
 """
 
 from typing import Dict
